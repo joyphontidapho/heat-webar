@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="th">
+<head><meta charset="utf-8"><title>คอมไพล์ไฟล์ .mind</title></head>
+<body>
+  <p>หน้านี้ใช้โดยสคริปต์ build-cards.cjs เพื่อคอมไพล์ภาพการ์ดเป็นไฟล์ .mind ด้วย MindAR 1.2.5</p>
+  <script type="module">
+    import { Compiler } from "../mindar-compiler/mindar-image.prod.js";
+    window.compileTarget = async function (src) {
+      const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
+      const compiler = new Compiler();
+      await compiler.compileImageTargets([img], () => {});
+      const buf = await compiler.exportData();
+      let bin = ""; const bytes = new Uint8Array(buf);
+      for (let k = 0; k < bytes.length; k += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(k, k + 0x8000));
+      return btoa(bin);
+    };
+    window.compilerReady = true;
+  </script>
+</body>
+</html>

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="referrer" content="no-referrer">
+  <title>ความร้อนกับการเปลี่ยนแปลงของสาร · WebAR</title>
+  <link rel="stylesheet" href="css/app.css">
+  <script src="config.js"></script>
+</head>
+<body>
+  <header class="menu-header">
+    <h1 id="kit-title"></h1>
+    <p id="kit-subtitle"></p>
+  </header>
+  <main class="menu-main" id="menu"></main>
+  <footer class="menu-footer" id="footer"></footer>
+  <noscript>ต้องเปิดใช้ JavaScript จึงจะใช้งานได้</noscript>
+
+  <script>
+    (function () {
+      var C = window.HEAT_CONFIG, T = C.text;
+      document.getElementById("kit-title").textContent = C.kitTitle;
+      document.getElementById("kit-subtitle").textContent = C.kitSubtitle;
+      document.getElementById("footer").textContent = C.schoolName + " · แอปนี้ไม่เก็บข้อมูลส่วนตัวและไม่บันทึกภาพจากกล้อง";
+
+      function el(tag, cls, text) {
+        var e = document.createElement(tag);
+        if (cls) e.className = cls;
+        if (text) e.textContent = text;
+        return e;
+      }
+
+      var menu = document.getElementById("menu");
+      C.activities.forEach(function (act) {
+        var sec = el("section", "activity");
+        sec.appendChild(el("h2", "", "กิจกรรมที่ " + act.no + " · " + act.title));
+        act.scenes.forEach(function (id) {
+          var sc = C.scenes[id];
+          var card = el("div", "scene-card" + (sc.ready ? "" : " disabled"));
+          card.appendChild(el("span", "code", sc.code));
+          card.appendChild(el("span", "title", sc.title));
+          var actions = el("div", "actions");
+          if (sc.ready) {
+            var a1 = el("a", "btn", T.openAR); a1.href = "scenes/" + id + ".html";
+            var a2 = el("a", "btn secondary", T.open3D); a2.href = "scenes/viewer.html?scene=" + id;
+            actions.appendChild(a1); actions.appendChild(a2);
+          } else {
+            actions.appendChild(el("span", "soon", T.comingSoon));
+          }
+          card.appendChild(actions);
+          sec.appendChild(card);
+        });
+        menu.appendChild(sec);
+      });
+    })();
+  </script>
+</body>
+</html>

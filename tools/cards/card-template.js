@@ -4,7 +4,7 @@
  *
  * หลักการออกแบบเพื่อให้ MindAR จับภาพได้แม่น:
  *   - ลายเส้น/รูปทรงหลากหลาย ความต่างสีสูง กระจายทั่วการ์ด
- *   - ไม่ใช้ลายซ้ำ (รูปทรงพื้นหลังสุ่มแบบกำหนด seed ต่างกันทุกใบ)
+ *   - พื้นหลังเป็นไอคอนลายเส้นสีเดียว วางห่างกัน (ตำแหน่งสุ่มแบบกำหนด seed ต่างกันทุกใบ ไม่ใช่ลายซ้ำ)
  *   - ไม่มีพื้นที่สีเรียบขนาดใหญ่
  */
 (function () {
@@ -24,35 +24,53 @@
   }
   function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
 
-  var PALETTE = ["#0f172a", "#c2410c", "#1d4ed8", "#15803d", "#7c3aed", "#b45309", "#be123c", "#0e7490"];
+  // ไอคอนลายเส้นธีมวิทยาศาสตร์ (สีเดียว) ใช้เป็นลายพื้นหลัง — แต่ละแบบรูปทรงต่างกัน ไม่ใช่ลายซ้ำ
+  var ICONS = [
+    // บีกเกอร์
+    '<path d="M-30,-40 L-30,35 Q-30,45 -20,45 L20,45 Q30,45 30,35 L30,-40 M-38,-40 L38,-40 M-30,5 L30,5"/>',
+    // ขวดรูปชมพู่
+    '<path d="M-10,-45 L-10,-15 L-38,40 Q-40,46 -32,46 L32,46 Q40,46 38,40 L10,-15 L10,-45 M-16,-45 L16,-45 M-24,18 L24,18"/>',
+    // เทอร์มอมิเตอร์
+    '<path d="M-8,25 L-8,-40 Q0,-50 8,-40 L8,25"/><circle cx="0" cy="35" r="14"/><path d="M14,-30 L22,-30 M14,-15 L22,-15 M14,0 L22,0"/>',
+    // โมเลกุล
+    '<circle cx="-28" cy="12" r="12"/><circle cx="26" cy="18" r="10"/><circle cx="0" cy="-26" r="15"/><path d="M-19,4 L-9,-14 M18,10 L8,-12"/>',
+    // เกล็ดน้ำแข็ง
+    '<path d="M0,-42 L0,42 M-36,-21 L36,21 M-36,21 L36,-21 M-8,-34 L0,-26 L8,-34 M-8,34 L0,26 L8,34"/>',
+    // เปลวไฟ
+    '<path d="M0,-44 C24,-14 34,4 22,26 C12,44 -12,44 -22,26 C-34,4 -12,-12 0,-44Z M0,0 C10,14 10,24 4,32 C-2,38 -10,32 -8,24"/>',
+    // หยดน้ำ
+    '<path d="M0,-42 C18,-14 30,4 30,18 C30,36 16,44 0,44 C-16,44 -30,36 -30,18 C-30,4 -18,-14 0,-42Z M-14,18 Q-14,30 -2,32"/>',
+    // หลอดทดลอง
+    '<path d="M-10,-44 L-10,30 Q-10,44 0,44 Q10,44 10,30 L10,-44 M-15,-44 L15,-44 M-10,8 L10,8"/>',
+    // ดวงอาทิตย์
+    '<circle cx="0" cy="0" r="18"/><path d="M0,-44 L0,-30 M0,30 L0,44 M-44,0 L-30,0 M30,0 L44,0 M-31,-31 L-21,-21 M21,21 L31,31 M-31,31 L-21,21 M21,-21 L31,-31"/>',
+    // ก้อนน้ำแข็ง
+    '<path d="M-30,-14 L-6,-34 L34,-26 L34,22 L8,40 L-30,30 Z M-30,-14 L8,-6 L34,-26 M8,-6 L8,40"/>'
+  ];
 
-  /** รูปทรงพื้นหลังแบบสุ่ม ไม่ซ้ำ (เพิ่มจุดเด่นให้ระบบจับภาพ) */
-  function doodles(seed, zones) {
-    var r = rng(seed), out = [];
+  /**
+   * ลายพื้นหลัง: ไอคอนลายเส้นสีเดียว วางห่างกันพอดี ไม่ทับกัน
+   * ช่วยให้ MindAR มีจุดเด่นกระจายทั่วการ์ด แต่ดูเรียบร้อยกว่ารูปทรงสุ่มหลายสี
+   */
+  function iconPattern(seed, zones) {
+    var r = rng(seed), out = [], pts = [];
+    var MIN_GAP = 165;
     function blocked(x, y, s) {
       return zones.some(function (z) { return x + s > z[0] && x - s < z[0] + z[2] && y + s > z[1] && y - s < z[1] + z[3]; });
     }
-    var tries = 0;
-    while (out.length < 230 && tries < 5000) {
+    var tries = 0, k = Math.floor(r() * ICONS.length);
+    while (tries < 6000) {
       tries++;
-      var x = 40 + r() * (W - 80), y = 40 + r() * (H - 80);
-      var s = 14 + r() * 34;
-      if (blocked(x, y, s + 6)) continue;
-      var c = PALETTE[Math.floor(r() * PALETTE.length)];
-      var rot = Math.floor(r() * 360);
-      var kind = Math.floor(r() * 7);
-      var sw = (3 + r() * 4).toFixed(1);
-      var g;
-      if (kind === 0) g = '<circle cx="0" cy="0" r="' + s.toFixed(1) + '" fill="none" stroke="' + c + '" stroke-width="' + sw + '"/>';
-      else if (kind === 1) g = '<polygon points="0,' + (-s).toFixed(1) + ' ' + (s * 0.87).toFixed(1) + ',' + (s / 2).toFixed(1) + ' ' + (-s * 0.87).toFixed(1) + ',' + (s / 2).toFixed(1) + '" fill="' + c + '"/>';
-      else if (kind === 2) g = '<rect x="' + (-s / 2).toFixed(1) + '" y="' + (-s / 2).toFixed(1) + '" width="' + s.toFixed(1) + '" height="' + (s * 0.6).toFixed(1) + '" fill="none" stroke="' + c + '" stroke-width="' + sw + '"/>';
-      else if (kind === 3) g = '<path d="M' + (-s) + ',0 q' + (s / 2) + ',' + (-s) + ' ' + s + ',0 t' + s + ',0" fill="none" stroke="' + c + '" stroke-width="' + sw + '" stroke-linecap="round"/>';
-      else if (kind === 4) g = '<path d="M0,' + (-s) + ' L' + (s * 0.3) + ',' + (-s * 0.3) + ' L' + s + ',0 L' + (s * 0.3) + ',' + (s * 0.3) + ' L0,' + s + ' L' + (-s * 0.3) + ',' + (s * 0.3) + ' L' + (-s) + ',0 L' + (-s * 0.3) + ',' + (-s * 0.3) + 'Z" fill="' + c + '"/>';
-      else if (kind === 5) g = '<g fill="' + c + '"><circle cx="' + (-s * 0.6) + '" cy="0" r="' + (s * 0.35) + '"/><circle cx="' + (s * 0.6) + '" cy="' + (s * 0.2) + '" r="' + (s * 0.45) + '"/><line x1="' + (-s * 0.6) + '" y1="0" x2="' + (s * 0.6) + '" y2="' + (s * 0.2) + '" stroke="' + c + '" stroke-width="' + sw + '"/></g>';
-      else g = '<path d="M' + (-s) + ',' + (-s * 0.4) + ' L' + s + ',' + (s * 0.4) + ' M' + (-s * 0.4) + ',' + s + ' L' + (s * 0.4) + ',' + (-s) + '" stroke="' + c + '" stroke-width="' + sw + '" stroke-linecap="round"/>';
-      out.push('<g transform="translate(' + x.toFixed(1) + ' ' + y.toFixed(1) + ') rotate(' + rot + ')">' + g + '</g>');
+      var x = 70 + r() * (W - 140), y = 70 + r() * (H - 140);
+      var sc = 0.95 + r() * 0.5;
+      if (blocked(x, y, 50 * sc + 10)) continue;
+      if (pts.some(function (p) { return (p[0] - x) * (p[0] - x) + (p[1] - y) * (p[1] - y) < MIN_GAP * MIN_GAP; })) continue;
+      pts.push([x, y]);
+      var rot = Math.round((r() - 0.5) * 50);
+      k = (k + 1 + Math.floor(r() * 3)) % ICONS.length;
+      out.push('<g transform="translate(' + x.toFixed(0) + ' ' + y.toFixed(0) + ') rotate(' + rot + ') scale(' + sc.toFixed(2) + ')">' + ICONS[k] + "</g>");
     }
-    return out.join("");
+    return '<g fill="none" stroke="#64748b" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">' + out.join("") + "</g>";
   }
 
   // ---------------- ภาพประกอบของแต่ละฉาก ----------------
@@ -81,6 +99,12 @@
       '<rect x="-8" y="' + (hgt * (1 - level)) + '" width="16" height="' + (hgt * level) + '" fill="' + color + '"/>' +
       '<circle cx="0" cy="' + (hgt + 26) + '" r="34" fill="' + color + '" stroke="#0f172a" stroke-width="8"/></g>';
   }
+
+  // พื้นที่ภาพประกอบหลักของแต่ละฉาก (ไม่วางไอคอนพื้นหลังทับ)
+  var ART_ZONES = {
+    "ar-1a": [[250, 300, 1540, 800]],
+    "ar-3a": [[220, 360, 1260, 760], [1150, 900, 420, 360], [370, 1020, 200, 200]]
+  };
 
   var ART = {
     "ar-1a": function () {
@@ -137,7 +161,7 @@
     ];
     var s = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + W + " " + H + '" width="210mm" height="148mm">';
     s += '<rect width="' + W + '" height="' + H + '" fill="#fffbeb"/>';
-    s += doodles(seed, zones);
+    s += iconPattern(seed, zones.concat(ART_ZONES[id] || []));
     s += (ART[id] ? ART[id]() : "");
     // แถบหัว
     s += '<rect x="40" y="40" width="330" height="140" rx="22" fill="#0f172a"/>';

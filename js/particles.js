@@ -210,7 +210,8 @@
 
   /** แอมพลิจูดการสั่นของของแข็ง */
   ParticleSim.prototype.solidAmplitude = function () {
-    return BASE.solidAmp * speedFactor(this.tempC);
+    // จำกัดไม่ให้สั่นเกินระยะห่างในโครงผลึก (สำหรับโลหะที่อุณหภูมิสูงมาก)
+    return Math.min(BASE.solidAmp * speedFactor(this.tempC), this.radius * 0.45);
   };
 
   /** เดินเวลาไป dt วินาที */

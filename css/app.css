@@ -119,6 +119,15 @@ body.scene-page.viewer-mode { background: #e2e8f0; }
 .bottombar .info:empty { display: none; }
 .bottombar .controls { display: flex; gap: 8px; flex-wrap: wrap; }
 .bottombar .controls .btn { flex: 1 1 auto; }
+.bottombar .sliders { margin-bottom: 8px; display: flex; flex-direction: column; gap: 4px; }
+.bottombar .sliders[hidden] { display: none; }
+.slider { display: flex; align-items: center; gap: 10px; min-height: 48px; }
+.slider-label { font-weight: 700; white-space: nowrap; }
+.slider input[type=range] { flex: 1; min-width: 0; height: 48px; accent-color: #f97316; }
+.slider-value { min-width: 4.5em; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.seg { display: flex; flex: 1 1 auto; gap: 0; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); }
+.seg .btn { flex: 1 1 0; border-radius: 0; border: 0; }
+.seg .btn + .btn { border-left: 1px solid var(--line); }
 
 .overlay {
   position: fixed; inset: 0; z-index: 30;

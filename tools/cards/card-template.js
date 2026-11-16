@@ -74,15 +74,16 @@
   }
 
   // ---------------- ภาพประกอบของแต่ละฉาก ----------------
-  function beaker(x, y, w, h, fill, label, waves) {
+  function beaker(x, y, w, h, fill, label, waves, level) {
+    var top = h * (1 - (level || 0.65));
     var s = '<g transform="translate(' + x + ' ' + y + ')">';
     s += '<path d="M0,0 L0,' + h + ' Q0,' + (h + 30) + ' 30,' + (h + 30) + ' L' + (w - 30) + ',' + (h + 30) + ' Q' + w + ',' + (h + 30) + ' ' + w + ',' + h + ' L' + w + ',0" fill="none" stroke="#0f172a" stroke-width="10"/>';
     s += '<path d="M-20,-6 L' + (w + 20) + ',-6" stroke="#0f172a" stroke-width="10" stroke-linecap="round"/>';
-    s += '<rect x="8" y="' + (h * 0.35) + '" width="' + (w - 16) + '" height="' + (h * 0.65 + 18) + '" fill="' + fill + '" opacity="0.35"/>';
-    for (var i = 0; i < 5; i++) s += '<path d="M10,' + (h * 0.35 + 6 + i * 4) + ' q' + (w / 8) + ',-14 ' + (w / 4) + ',0 t' + (w / 4) + ',0 t' + (w / 4) + ',0 t' + (w / 4 - 20) + ',0" fill="none" stroke="' + fill + '" stroke-width="5" opacity="' + (i === 0 ? 1 : 0) + '"/>';
+    s += '<rect x="8" y="' + top + '" width="' + (w - 16) + '" height="' + (h - top + 18) + '" fill="' + fill + '" opacity="0.35"/>';
+    for (var i = 0; i < 5; i++) s += '<path d="M10,' + (top + 6 + i * 4) + ' q' + (w / 8) + ',-14 ' + (w / 4) + ',0 t' + (w / 4) + ',0 t' + (w / 4) + ',0 t' + (w / 4 - 20) + ',0" fill="none" stroke="' + fill + '" stroke-width="5" opacity="' + (i === 0 ? 1 : 0) + '"/>';
     for (var k = 1; k <= 4; k++) s += '<line x1="' + (w - 60) + '" y1="' + (h * k / 5) + '" x2="' + (w - 10) + '" y2="' + (h * k / 5) + '" stroke="#0f172a" stroke-width="6"/>';
     var r = rng(waves);
-    for (var j = 0; j < 18; j++) s += '<circle cx="' + (30 + r() * (w - 60)).toFixed(0) + '" cy="' + (h * 0.42 + r() * h * 0.5).toFixed(0) + '" r="' + (12 + r() * 6).toFixed(0) + '" fill="' + fill + '" stroke="#0f172a" stroke-width="4"/>';
+    for (var j = 0; j < 18; j++) s += '<circle cx="' + (30 + r() * (w - 60)).toFixed(0) + '" cy="' + (top + 30 + r() * (h - top - 40)).toFixed(0) + '" r="' + (12 + r() * 6).toFixed(0) + '" fill="' + fill + '" stroke="#0f172a" stroke-width="4"/>';
     s += '<text x="' + (w / 2) + '" y="' + (h + 100) + '" font-family="' + FONT + '" font-weight="700" font-size="56" text-anchor="middle" fill="#0f172a">' + esc(label) + '</text>';
     return s + "</g>";
   }
@@ -103,7 +104,15 @@
   // พื้นที่ภาพประกอบหลักของแต่ละฉาก (ไม่วางไอคอนพื้นหลังทับ)
   var ART_ZONES = {
     "ar-1a": [[250, 300, 1540, 800]],
-    "ar-3a": [[220, 360, 1260, 760], [1150, 900, 420, 360], [370, 1020, 200, 200]]
+    "ar-3a": [[220, 360, 1260, 760], [1150, 900, 420, 360], [370, 1020, 200, 200]],
+    "ar-1b": [[150, 280, 1450, 960]],
+    "ar-2a": [[260, 260, 1500, 960]],
+    "ar-2b": [[260, 260, 1500, 960]],
+    "ar-3b": [[340, 300, 1400, 940]],
+    "ar-4a": [[250, 260, 1300, 600]],
+    "ar-4b": [[240, 330, 1560, 860]],
+    "ar-5a": [[240, 200, 1620, 960]],
+    "ar-5b": [[250, 200, 1550, 1000]]
   };
 
   var ART = {
@@ -127,6 +136,94 @@
       g += '<g transform="translate(1230 1030)"><path d="M-110,40 Q-110,-70 0,-70 Q110,-70 110,40 Z" fill="#94a3b8" stroke="#0f172a" stroke-width="10"/><path d="M110,-10 L190,-60" stroke="#0f172a" stroke-width="18" stroke-linecap="round"/><rect x="-130" y="40" width="260" height="30" rx="12" fill="#0f172a"/></g>';
       g += '<g fill="none" stroke="#64748b" stroke-width="10" stroke-linecap="round"><path d="M1430,950 q-30,-40 0,-80 t0,-80"/><path d="M1480,920 q-30,-40 0,-80 t0,-80"/></g>';
       g += flame(1230, 1180, 0.7);
+      return g;
+    },
+    "ar-1b": function () {
+      var g = '<g transform="translate(560 300)">';
+      g += '<rect x="-40" y="0" width="80" height="760" rx="40" fill="#fff" stroke="#0f172a" stroke-width="12"/>';
+      g += '<rect x="-16" y="380" width="32" height="400" fill="#dc2626"/>';
+      g += '<circle cx="0" cy="820" r="80" fill="#dc2626" stroke="#0f172a" stroke-width="12"/>';
+      for (var k = 0; k <= 10; k++) {
+        var yy = 740 - k * 64;
+        g += '<line x1="40" y1="' + yy + '" x2="' + (k % 5 === 0 ? 100 : 80) + '" y2="' + yy + '" stroke="#0f172a" stroke-width="8"/>';
+        if (k % 2 === 0) g += '<text x="112" y="' + (yy + 18) + '" font-family="' + FONT + '" font-size="48" font-weight="700" fill="#0f172a">' + (k * 10) + '</text>';
+      }
+      g += '</g>';
+      // ดวงตา + ลูกศรระดับสายตา
+      g += '<g transform="translate(250 680)"><path d="M-80,0 Q0,-70 80,0 Q0,70 -80,0Z" fill="#fff" stroke="#0f172a" stroke-width="10"/><circle cx="10" cy="0" r="28" fill="#1d4ed8"/><circle cx="12" cy="0" r="12" fill="#0f172a"/></g>';
+      g += '<path d="M350,680 L490,680" stroke="#16a34a" stroke-width="14"/><path d="M490,650 L530,680 L490,710Z" fill="#16a34a"/>';
+      // แว่นขยาย + อนุภาค
+      g += '<g transform="translate(1250 700)"><circle r="300" fill="#fff" stroke="#0f172a" stroke-width="22"/>';
+      var r = rng(77);
+      for (var j = 0; j < 26; j++) g += '<circle cx="' + ((r() - 0.5) * 380).toFixed(0) + '" cy="' + (-40 + r() * 210).toFixed(0) + '" r="34" fill="#dc2626" stroke="#0f172a" stroke-width="6"/>';
+      g += '<path d="M210,210 L330,330" stroke="#0f172a" stroke-width="40" stroke-linecap="round"/></g>';
+      g += '<path d="M620,1120 L960,900" stroke="#334155" stroke-width="6" stroke-dasharray="20 14"/>';
+      return g;
+    },
+    "ar-2a": function () {
+      return beaker(420, 420, 400, 460, "#3B82F6", "น้ำ 100 g", 8, 0.4) + beaker(1160, 420, 400, 460, "#3B82F6", "น้ำ 200 g", 12, 0.8) +
+        flame(620, 1150, 0.9) + flame(1360, 1150, 0.9) + thermometer(880, 360, 360, 0.6, "#dc2626") + thermometer(1620, 360, 360, 0.35, "#dc2626");
+    },
+    "ar-2b": function () {
+      return beaker(420, 420, 400, 460, "#3B82F6", "น้ำ 100 g", 9, 0.6) + beaker(1160, 420, 400, 460, "#EAB308", "น้ำมันพืช 100 g", 14, 0.6) +
+        flame(620, 1150, 0.9) + flame(1360, 1150, 0.9) + thermometer(880, 360, 360, 0.35, "#dc2626") + thermometer(1620, 360, 360, 0.7, "#dc2626");
+    },
+    "ar-3b": function () {
+      var g = '<g transform="translate(420 380)">';
+      for (var i = 0; i < 6; i++) for (var j = 0; j < 5; j++) {
+        var broken = (i + j) % 4 === 0 && j < 2;
+        var cx = i * 120 + (broken ? 30 : 0), cy = j * 120 + (broken ? -40 : 0);
+        if (j < 4 && !broken) g += '<line x1="' + cx + '" y1="' + cy + '" x2="' + cx + '" y2="' + (cy + 120) + '" stroke="#1d4ed8" stroke-width="8"/>';
+        if (i < 5 && !broken) g += '<line x1="' + cx + '" y1="' + cy + '" x2="' + (cx + 120) + '" y2="' + cy + '" stroke="#1d4ed8" stroke-width="8"/>';
+        g += '<circle cx="' + cx + '" cy="' + cy + '" r="40" fill="#3B82F6" stroke="#0f172a" stroke-width="6"/>';
+      }
+      g += '</g>';
+      g += thermometer(1350, 360, 520, 0.5, "#dc2626");
+      g += '<text x="1470" y="660" font-family="' + FONT + '" font-size="110" font-weight="700" fill="#c2410c">0 °C</text>';
+      g += '<g transform="translate(1600 920)"><path d="M0,-80 C40,-30 60,0 60,30 C60,70 30,90 0,90 C-30,90 -60,70 -60,30 C-60,0 -40,-30 0,-80Z" fill="#93c5fd" stroke="#1d4ed8" stroke-width="10"/></g>';
+      g += flame(1400, 1120, 0.8);
+      return g;
+    },
+    "ar-4a": function () {
+      var g = '<g transform="translate(700 760)"><ellipse rx="230" ry="80" fill="none" stroke="#0f172a" stroke-width="40"/><ellipse rx="230" ry="80" fill="none" stroke="#9ca3af" stroke-width="22"/></g>';
+      g += '<path d="M930,760 L1500,760" stroke="#78350f" stroke-width="34" stroke-linecap="round"/>';
+      g += '<circle cx="700" cy="480" r="190" fill="#9ca3af" stroke="#0f172a" stroke-width="14"/><path d="M600,400 Q640,340 720,330" stroke="#fff" stroke-width="22" fill="none" stroke-linecap="round"/>';
+      g += '<path d="M1000,400 L1120,400 M1000,520 L1120,520" stroke="#c2410c" stroke-width="14" stroke-linecap="round"/>';
+      g += flame(1300, 560, 1.4) + snow(320, 450, 1);
+      return g;
+    },
+    "ar-4b": function () {
+      var g = '<rect x="300" y="420" width="140" height="260" fill="#334155" stroke="#0f172a" stroke-width="10"/><rect x="260" y="680" width="220" height="60" fill="#0f172a"/>';
+      g += '<path d="M440,520 Q1100,520 1250,1050" fill="none" stroke="#B87333" stroke-width="56"/>';
+      g += '<path d="M440,572 Q1040,572 1190,1060" fill="none" stroke="#9CA3AF" stroke-width="52"/>';
+      g += '<path d="M440,494 Q1110,494 1276,1044 M440,598 Q1030,598 1164,1066" fill="none" stroke="#0f172a" stroke-width="8"/>';
+      g += '<text x="760" y="460" font-family="' + FONT + '" font-size="64" font-weight="700" fill="#7c2d12">ทองแดง</text>';
+      g += '<text x="520" y="720" font-family="' + FONT + '" font-size="64" font-weight="700" fill="#1f2937">เหล็ก</text>';
+      g += flame(980, 1080, 1.2) + thermometer(1650, 380, 420, 0.8, "#dc2626");
+      return g;
+    },
+    "ar-5a": function () {
+      var g = '<rect x="260" y="560" width="1560" height="60" fill="#a8a29e" stroke="#0f172a" stroke-width="8"/>';
+      for (var k = 0; k < 13; k++) g += '<rect x="' + (290 + k * 118) + '" y="520" width="56" height="44" fill="#78350f" stroke="#0f172a" stroke-width="6"/>';
+      g += '<rect x="280" y="470" width="740" height="46" fill="#6b7280" stroke="#0f172a" stroke-width="8"/><rect x="1060" y="470" width="740" height="46" fill="#6b7280" stroke="#0f172a" stroke-width="8"/>';
+      g += '<path d="M1040,420 L1040,450 M1020,440 L1040,460 L1060,440" stroke="#c2410c" stroke-width="10" fill="none"/>';
+      g += '<rect x="300" y="860" width="660" height="60" fill="#cbd5e1" stroke="#0f172a" stroke-width="8"/><rect x="1000" y="860" width="660" height="60" fill="#cbd5e1" stroke="#0f172a" stroke-width="8"/>';
+      g += '<rect x="330" y="920" width="70" height="220" fill="#94a3b8" stroke="#0f172a" stroke-width="8"/><rect x="945" y="920" width="70" height="220" fill="#94a3b8" stroke="#0f172a" stroke-width="8"/><rect x="1560" y="920" width="70" height="220" fill="#94a3b8" stroke="#0f172a" stroke-width="8"/>';
+      g += '<g transform="translate(1650 300)"><circle r="60" fill="#f59e0b"/>';
+      for (var a = 0; a < 8; a++) g += '<line x1="0" y1="-85" x2="0" y2="-120" stroke="#f59e0b" stroke-width="14" stroke-linecap="round" transform="rotate(' + (a * 45) + ')"/>';
+      return g + '</g>';
+    },
+    "ar-5b": function () {
+      var g = '<rect x="250" y="1150" width="1500" height="40" fill="#65a30d"/>';
+      [380, 1580].forEach(function (x) {
+        g += '<rect x="' + (x - 22) + '" y="330" width="44" height="830" fill="#78716c" stroke="#0f172a" stroke-width="8"/>';
+        g += '<rect x="' + (x - 110) + '" y="330" width="220" height="30" fill="#57534e" stroke="#0f172a" stroke-width="6"/>';
+      });
+      g += '<path d="M400,340 Q980,800 1560,340" fill="none" stroke="#111827" stroke-width="14"/>';
+      g += '<path d="M400,340 Q980,520 1560,340" fill="none" stroke="#475569" stroke-width="8" stroke-dasharray="26 16"/>';
+      g += '<g transform="translate(1250 280)"><circle r="56" fill="#f59e0b"/>';
+      for (var a = 0; a < 8; a++) g += '<line x1="0" y1="-78" x2="0" y2="-108" stroke="#f59e0b" stroke-width="12" stroke-linecap="round" transform="rotate(' + (a * 45) + ')"/>';
+      g += '</g><g transform="translate(700 260)"><path d="M-60,0 A60,60 0 0,1 60,0 Z" fill="#fb923c" stroke="#0f172a" stroke-width="6"/><line x1="-90" y1="0" x2="90" y2="0" stroke="#0f172a" stroke-width="8"/></g>';
       return g;
     }
   };

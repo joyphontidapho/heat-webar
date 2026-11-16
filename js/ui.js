@@ -106,7 +106,11 @@
         var minWpx = (d.minWidth / d.size) * px;
         var w = Math.ceil(Math.max(maxW + pad * 2, minWpx, px));
         var h = Math.ceil(lines.length * lineH + pad * 2);
-        this.canvas.width = w; this.canvas.height = h;
+        if (this.canvas.width !== w || this.canvas.height !== h) {
+          // WebGL จองขนาด texture ไว้ตายตัว ถ้าขนาด canvas เปลี่ยนต้อง dispose ก่อน ไม่งั้นภาพไม่อัปเดต
+          this.texture.dispose();
+          this.canvas.width = w; this.canvas.height = h;
+        }
         ctx = this.canvas.getContext("2d");
         ctx.clearRect(0, 0, w, h);
         if (d.bg && d.bg !== "none") {

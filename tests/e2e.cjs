@@ -79,7 +79,8 @@ async function openScene(browser, base, url, opts = {}) {
     const cards = await page.$$eval(".scene-card", (els) => els.length);
     check("แสดงครบ 10 ฉาก", cards === 10, cards);
     const links = await page.$$eval(".scene-card a", (els) => els.map((a) => a.getAttribute("href")));
-    check("AR-1A และ AR-3A มีปุ่มกล้องและปุ่ม 3D", ["scenes/ar-1a.html", "scenes/viewer.html?scene=ar-1a", "scenes/ar-3a.html", "scenes/viewer.html?scene=ar-3a"].every((l) => links.includes(l)), links);
+    const ALL = ["ar-1a", "ar-1b", "ar-2a", "ar-2b", "ar-3a", "ar-3b", "ar-4a", "ar-4b", "ar-5a", "ar-5b"];
+    check("ทุกฉากมีปุ่มกล้องและปุ่ม 3D", ALL.every((id) => links.includes("scenes/" + id + ".html") && links.includes("scenes/viewer.html?scene=" + id)), links);
     const thaiFont = await page.evaluate(async () => { await document.fonts.ready; return document.fonts.check('16px "Sarabun"', "กขค"); });
     check("ฟอนต์ไทย Sarabun โหลดได้", thaiFont);
     check("ไม่มี error ใน console", errors.length === 0, errors);
@@ -218,6 +219,139 @@ async function openScene(browser, base, url, opts = {}) {
   }
 
   // ---------------------------------------------------------------
+  console.log("\n[3b] ฉากระยะที่ 2 (โหมด 3D)");
+  async function scene(id) {
+    const r = await openScene(browser, base, "scenes/viewer.html?scene=" + id);
+    await r.page.evaluate(() => HeatApp.setPaused(true));
+    return r;
+  }
+  async function finish(r, id) {
+    await r.page.evaluate(() => HeatApp.setPaused(false));
+    await r.page.waitForTimeout(800);
+    await r.page.screenshot({ path: path.join(CACHE, id + "-viewer.png") });
+    check(id + ": ไม่มี error ใน console", r.errors.length === 0, r.errors);
+    allExternal.push(...r.external);
+    await r.ctx.close();
+  }
+  function radiusConstant(page) {
+    return page.evaluate(() => {
+      const THREE = AFRAME.THREE, m = new THREE.Matrix4(), p = new THREE.Vector3(), q = new THREE.Quaternion(), s = new THREE.Vector3();
+      let ok = true;
+      document.querySelectorAll("[particle-box]").forEach((el) => {
+        const c = el.components["particle-box"];
+        for (let i = 0; i < c.mesh.count; i++) { c.mesh.getMatrixAt(i, m); m.decompose(p, q, s); if (Math.abs(s.x - 1) > 1e-6) ok = false; }
+      });
+      return ok;
+    });
+  }
+  {
+    const id = "ar-1b", r = await scene(id), page = r.page;
+    const res = await page.evaluate(() => [0, 50, 100].map((t) => {
+      __scene.setTemp(t); const sim = __scene.sim();
+      return { t, top: __scene.columnTop(), eye: __scene.eyeY(), hl: sim.liquidHeight(), v: sim.targetSpeed("liquid"), r: sim.radius };
+    }));
+    check(id + ": ของเหลวในหลอดสูงขึ้นเมื่อร้อนขึ้น", res[0].top < res[1].top && res[1].top < res[2].top, res.map((x) => x.top));
+    check(id + ": ลูกศรระดับสายตาอยู่ระดับเดียวกับผิวของเหลวเสมอ", res.every((x) => Math.abs(x.top - x.eye) < 1e-6), res.map((x) => [x.top, x.eye]));
+    check(id + ": อนุภาคในกระเปาะเร็วขึ้นและอยู่ห่างกันขึ้น (ชั้นของเหลวสูงขึ้น)", res[2].v > res[0].v && res[2].hl > res[0].hl, res);
+    check(id + ": ขนาดอนุภาคคงที่", new Set(res.map((x) => x.r)).size === 1 && await radiusConstant(page));
+    const slider = await page.$("input[type=range]");
+    check(id + ": มีแถบเลื่อน 0–100 °C", slider && (await slider.getAttribute("min")) === "0" && (await slider.getAttribute("max")) === "100");
+    await finish(r, id);
+  }
+  for (const [id, expectRatio] of [["ar-2a", 2.0], ["ar-2b", 2.1]]) {
+    const r = await scene(id), page = r.page;
+    const res = await page.evaluate(() => { __scene.heatNow(); return { d: __scene.deltas(), Q: __scene.Q, info: document.querySelector(".bottombar .info").textContent }; });
+    const ratio = Math.max(...res.d) / Math.min(...res.d);
+    check(id + ": ความร้อนที่ให้เท่ากัน " + res.Q + " J ต่อการกด", res.Q === 4200, res.Q);
+    check(id + ": อัตราส่วนอุณหภูมิที่เพิ่ม ≈ " + expectRatio + " เท่า", Math.abs(ratio - expectRatio) < 0.06, res.d);
+    if (id === "ar-2a") check(id + ": น้ำ 100 g เพิ่ม 10 °C, 200 g เพิ่ม 5 °C (Q = m c ΔT)", Math.abs(res.d[0] - 10) < 1e-9 && Math.abs(res.d[1] - 5) < 1e-9, res.d);
+    if (id === "ar-2b") {
+      const labels = await page.evaluate(() => [...document.querySelectorAll("[th-label]")].map((e) => e.getAttribute("th-label").text));
+      check(id + ": แสดงค่า c ของแต่ละสาร", labels.some((t) => /c = 4\.2/.test(t)) && labels.some((t) => /c = 2\.0/.test(t)), labels);
+      check(id + ": น้ำมันร้อนขึ้นเร็วกว่าน้ำ", res.d[1] > res.d[0], res.d);
+    }
+    check(id + ": สรุปผลเป็นภาษาไทยในแถบล่าง", /เท่า/.test(res.info), res.info);
+    const btn = await page.$("text=ให้ความร้อน 30 วินาที");
+    check(id + ": มีปุ่ม \"ให้ความร้อน 30 วินาที\"", !!btn);
+    await finish(r, id);
+  }
+  {
+    const id = "ar-3b", r = await scene(id), page = r.page;
+    const res = await page.evaluate(() => {
+      const rows = [];
+      for (let k = 0; k <= 10; k++) {
+        if (k > 0) __scene.press();
+        __scene.settle();
+        const sim = __scene.sim();
+        const modes = sim.particles.reduce((a, q) => { a[q.mode] = (a[q.mode] || 0) + 1; return a; }, {});
+        const labels = [...document.querySelectorAll("[th-label]")].map((e) => e.getAttribute("th-label").text);
+        rows.push({ k, temp: labels.find((t) => /อุณหภูมิ/.test(t)), J: __scene.state.joules, v: sim.targetSpeed("solid"), solid: modes.solid || 0, liquid: modes.liquid || 0, counter: labels.find((t) => /ความร้อนที่ให้/.test(t)) });
+      }
+      return rows;
+    });
+    check(id + ": ป้ายอุณหภูมิค้างที่ 0 °C ตลอดการหลอมเหลว", res.every((x) => /อุณหภูมิ 0 °C/.test(x.temp)), res.map((x) => x.temp));
+    check(id + ": ความเร็วสั่นเฉลี่ยคงที่ทุกขั้น", new Set(res.map((x) => x.v.toFixed(9))).size === 1);
+    check(id + ": โครงผลึกค่อย ๆ แตกออก (ของแข็งลดลงทีละขั้น)", res.every((x, i) => i === 0 || x.solid <= res[i - 1].solid) && res[0].solid === 32 && res[10].liquid === 32, res.map((x) => x.solid));
+    check(id + ": ตัวนับความร้อน 334 J ต่อขั้น รวม 3,340 J", res[1].J === 334 && Math.round(res[10].J) === 3340 && /3,340 J/.test(res[10].counter), [res[1].J, res[10].J, res[10].counter]);
+    check(id + ": ขนาดอนุภาคคงที่", await radiusConstant(page));
+    await finish(r, id);
+  }
+  {
+    const id = "ar-4a", r = await scene(id), page = r.page;
+    const res = await page.evaluate(() => {
+      const out = {};
+      __scene.apply(false); __scene.run(3); out.cold = { passed: __scene.state.passed, stuck: __scene.state.stuck, gap: __scene.sim().particles[1].hx - __scene.sim().particles[0].hx };
+      __scene.apply(true); __scene.run(3); out.hot = { passed: __scene.state.passed, stuck: __scene.state.stuck, gap: __scene.sim().particles[1].hx - __scene.sim().particles[0].hx };
+      out.r = [__scene.coldR, __scene.ringInner, __scene.hotR];
+      return out;
+    });
+    check(id + ": เย็น → ลูกบอลลอดผ่านวงแหวน", res.cold.passed && !res.cold.stuck, res.cold);
+    check(id + ": ร้อน → ลูกบอลค้างบนวงแหวน", res.hot.stuck && !res.hot.passed, res.hot);
+    check(id + ": รูวงแหวนใหญ่กว่าลูกบอลเย็น แต่เล็กกว่าลูกบอลร้อน", res.r[0] < res.r[1] && res.r[1] < res.r[2], res.r);
+    check(id + ": หน้าต่างซูม: ระยะห่างอนุภาคโลหะเพิ่มเมื่อร้อน", res.hot.gap > res.cold.gap, [res.cold.gap, res.hot.gap]);
+    check(id + ": ขนาดอนุภาคคงที่", await radiusConstant(page));
+    await finish(r, id);
+  }
+  {
+    const id = "ar-4b", r = await scene(id), page = r.page;
+    const res = await page.evaluate(() => [25, 100, 200].map((t) => {
+      __scene.setTemp(t); const g = __scene.geometry();
+      if (!g.center) return { t, k: g.kappa };
+      const d = (p) => Math.hypot(p.x - g.center.x, p.y - g.center.y);
+      const cuOut = g.cu.every((p, i) => d(p) > d(g.fe[i]));
+      const tip = g.cu[g.cu.length - 1];
+      return { t, k: g.kappa, cuOut, tipY: tip.y };
+    }));
+    check(id + ": ที่ 25 °C แถบตรง", res[0].k === 0, res[0]);
+    check(id + ": ร้อนขึ้น → โค้งมากขึ้น", res[2].k > res[1].k && res[2].tipY < res[1].tipY, res);
+    check(id + ": ทองแดงอยู่ด้านนอกของส่วนโค้งทุกชิ้น", res[1].cuOut && res[2].cuOut, res);
+    await finish(r, id);
+  }
+  {
+    const id = "ar-5a", r = await scene(id), page = r.page;
+    const res = await page.evaluate(() => {
+      const o = {};
+      __scene.set(false, true); o.nightGap = { rail: __scene.state.railGap, bridge: __scene.state.bridgeGap };
+      __scene.set(true, true); o.dayGap = { rail: __scene.state.railGap, bridge: __scene.state.bridgeGap, buckle: __scene.state.buckle };
+      __scene.set(false, false); o.nightNo = { buckle: __scene.state.buckle };
+      __scene.set(true, false); o.dayNo = { buckle: __scene.state.buckle, lift: __scene.state.lift };
+      return o;
+    });
+    check(id + ": กลางวันช่องว่างรางแคบกว่ากลางคืน", res.dayGap.rail < res.nightGap.rail && res.dayGap.rail > 0, res);
+    check(id + ": กลางวันช่องว่างรอยต่อสะพานแคบกว่ากลางคืน", res.dayGap.bridge < res.nightGap.bridge && res.dayGap.bridge > 0, res);
+    check(id + ": เว้นรอยต่อ → รางไม่โก่ง", res.dayGap.buckle === 0);
+    check(id + ": ไม่เว้นรอยต่อ + กลางวัน → รางโก่งและสะพานยกตัว", res.dayNo.buckle > 0.01 && res.dayNo.lift > 0 && res.nightNo.buckle === 0, res);
+    await finish(r, id);
+  }
+  {
+    const id = "ar-5b", r = await scene(id), page = r.page;
+    const res = await page.evaluate(() => { __scene.set(false); const dawn = { ...__scene.state }; __scene.set(true); const day = { ...__scene.state }; return { dawn, day }; });
+    check(id + ": กลางวันสายไฟหย่อนกว่าเช้ามืด", res.day.sag > res.dawn.sag, res);
+    check(id + ": กลางวันสายไฟยาวกว่า (ขยายตัว)", res.day.length > res.dawn.length, [res.dawn.length, res.day.length]);
+    await finish(r, id);
+  }
+
+  // ---------------------------------------------------------------
   console.log("\n[4] แก้ config.js แล้วฉากเปลี่ยนตาม");
   {
     const { ctx, page } = await openScene(browser, base, "scenes/viewer.html?scene=ar-1a", {
@@ -259,7 +393,7 @@ async function openScene(browser, base, url, opts = {}) {
 
   // ---------------------------------------------------------------
   console.log("\n[6] จับการ์ดด้วยกล้องจำลอง (ภาพการ์ดเป็นวิดีโอ)");
-  for (const id of ["ar-1a", "ar-3a"]) {
+  for (const id of ["ar-1a", "ar-1b", "ar-2a", "ar-2b", "ar-3a", "ar-3b", "ar-4a", "ar-4b", "ar-5a", "ar-5b"]) {
     const y4m = path.join(CACHE, id + ".y4m");
     try {
       // วางการ์ดบนพื้นเทา 1280×720 แล้วแปลงเป็นวิดีโอ y4m สำหรับกล้องจำลองของ Chromium

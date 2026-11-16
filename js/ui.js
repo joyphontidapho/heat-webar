@@ -270,6 +270,39 @@
     return el;
   }
 
+  /**
+   * แผ่นภาพที่วาดด้วย canvas (ใช้วาดสเกล กราฟ ไอคอน)
+   * opts: { w, h (หน่วยโลก), px (ความกว้าง canvas), position, draw(ctx2d, W, H), clickable }
+   * คืนค่า { el, redraw(), canvas }
+   */
+  function canvasPlane(parent, opts) {
+    var THREE = window.AFRAME.THREE;
+    var cw = opts.px || 512, ch = Math.round(cw * opts.h / opts.w);
+    var canvas = document.createElement("canvas");
+    canvas.width = cw; canvas.height = ch;
+    var tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 4;
+    var el = ent("a-plane", Object.assign({ width: opts.w, height: opts.h, position: opts.position || "0 0 0",
+      material: "shader: flat; transparent: true; side: double" }, opts.clickable ? { class: "clickable" } : {}), parent);
+    function redraw() {
+      var c = canvas.getContext("2d");
+      c.clearRect(0, 0, cw, ch);
+      opts.draw(c, cw, ch);
+      tex.needsUpdate = true;
+    }
+    function attach() {
+      var mesh = el.getObject3D("mesh");
+      mesh.material.map = tex;
+      mesh.material.depthWrite = false;
+      mesh.material.needsUpdate = true;
+    }
+    if (el.hasLoaded) attach(); else el.addEventListener("loaded", attach);
+    redraw();
+    fontsReady().then(redraw);
+    return { el: el, redraw: redraw, canvas: canvas };
+  }
+
   function isInAppBrowser() {
     var ua = navigator.userAgent || "";
     return /\bLine\/|FBAN|FBAV|Instagram|MicroMessenger|TikTok/i.test(ua);
@@ -309,13 +342,14 @@
     // ---------- แถบล่าง ----------
     var info = h("div", { class: "info", "aria-live": "polite" });
     var controls = h("div", { class: "controls" });
+    var sliders = h("div", { class: "sliders", hidden: "" });
     var pauseBtn = h("button", { class: "btn secondary", type: "button", text: T.pause });
     pauseBtn.addEventListener("click", function () { window.HeatApp.setPaused(!window.HeatApp.paused); });
     window.HeatApp.onPauseChange(function (p) {
       pauseBtn.textContent = p ? T.play : T.pause;
       pauseBtn.setAttribute("aria-pressed", p ? "true" : "false");
     });
-    var bottombar = h("footer", { class: "bottombar" }, [info, controls]);
+    var bottombar = h("footer", { class: "bottombar" }, [info, sliders, controls]);
 
     document.body.appendChild(topbar);
     document.body.appendChild(bottombar);
@@ -332,6 +366,50 @@
       setActive: function (btn, on) {
         btn.classList.toggle("active", !!on);
         btn.setAttribute("aria-pressed", on ? "true" : "false");
+      },
+      /**
+       * สวิตช์แบบเลือก 1 จากหลายตัวเลือก เช่น เย็น/ร้อน
+       * options: [{ label, value }] · คืนค่า { set(value), get() }
+       */
+      addToggle: function (groupLabel, options, value, onChange) {
+        var group = h("div", { class: "seg", role: "group", "aria-label": groupLabel });
+        var current = value;
+        var btns = options.map(function (o) {
+          var b = h("button", { class: "btn secondary", type: "button", text: o.label });
+          b.addEventListener("click", function () { api.set(o.value); onChange(o.value); });
+          group.appendChild(b);
+          return b;
+        });
+        var api = {
+          set: function (v) {
+            current = v;
+            options.forEach(function (o, i) { ui.setActive(btns[i], o.value === v); });
+          },
+          get: function () { return current; },
+          buttons: btns
+        };
+        api.set(value);
+        controls.insertBefore(group, pauseBtn);
+        return api;
+      },
+      /**
+       * แถบเลื่อน เช่น อุณหภูมิ 0–100 °C
+       * opts: { min, max, step, value, unit } · คืนค่า { set(value), get(), input }
+       */
+      addSlider: function (label, opts, onInput) {
+        var out = h("output", { class: "slider-value" });
+        var input = h("input", { type: "range", min: opts.min, max: opts.max, step: opts.step || 1, value: opts.value, "aria-label": label });
+        var row = h("label", { class: "slider" }, [h("span", { class: "slider-label", text: label }), input, out]);
+        function show() { out.textContent = input.value + (opts.unit ? " " + opts.unit : ""); }
+        input.addEventListener("input", function () { show(); onInput(parseFloat(input.value)); });
+        sliders.appendChild(row);
+        sliders.hidden = false;
+        show();
+        return {
+          input: input,
+          set: function (v) { input.value = v; show(); },
+          get: function () { return parseFloat(input.value); }
+        };
       }
     };
     controls.appendChild(pauseBtn);
@@ -374,7 +452,7 @@
 
     var ctx = {
       id: sceneId, cfg: CFG, scene: sc, mode: mode, ui: ui, sceneEl: sceneEl,
-      ent: ent, formatTemp: formatTemp, fmt: fmt
+      ent: ent, formatTemp: formatTemp, fmt: fmt, canvasPlane: canvasPlane
     };
 
     function placeViewerHint() {
